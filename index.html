@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Jazz Session Manager</title>
+    <style>
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
+        h1 { text-align: center; color: #2c3e50; margin-top: 5px; }
+        
+        .reset-btn { background: none; border: none; color: #bdc3c7; font-size: 11px; cursor: pointer; text-decoration: underline; padding: 5px; }
+        .reset-btn:hover { color: #e74c3c; }
+
+        .container { display: flex; flex-wrap: wrap; gap: 20px; max-width: 1000px; margin: 0 auto; }
+        .panel { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); flex: 1; min-width: 300px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 16px; }
+        
+        button { background-color: #3498db; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-size: 16px; margin-top: 10px; transition: all 0.2s ease; }
+        button:hover { background-color: #2980b9; }
+        button:active { transform: scale(0.97); } 
+        
+        .full-width-btn { width: 100%; font-weight: bold; }
+        .btn-success-anim { background-color: #2ecc71 !important; }
+        
+        .generate-btn { background-color: #e74c3c; font-weight: bold; width: 100%; transition: all 0.2s ease; }
+        .generate-btn:hover { background-color: #c0392b; }
+        .confirm-btn { background-color: #27ae60; font-weight: bold; margin-top: 20px; width: 100%; transition: all 0.2s ease; }
+        .confirm-btn:hover { background-color: #2ecc71; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9em; }
+        th, td { border: 1px solid #ddd; padding: 6px; text-align: left; vertical-align: middle; }
+        th { background-color: #f2f2f2; }
+        .time-cell { font-family: monospace; color: #7f8c8d; width: 50px; }
+        
+        @keyframes flashHighlight {
+            0% { background-color: #a2d9ce; }
+            100% { background-color: transparent; }
+        }
+        .highlight-row td { animation: flashHighlight 1.5s ease-out; }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in-down { animation: fadeInDown 0.4s ease-out; }
+
+        @keyframes flashHistory {
+            0% { background-color: #d1f2eb; border-color: #1abc9c; transform: scale(1.02); box-shadow: 0 8px 15px rgba(26, 188, 156, 0.3); }
+            100% { background-color: #f9f9f9; border-color: #eee; transform: scale(1); box-shadow: none; }
+        }
+        .history-flash { animation: flashHistory 0.6s ease-out; }
+        
+        .small-btn { padding: 4px 8px; font-size: 0.85em; margin: 0 2px; border-radius: 3px; cursor: pointer; border: none; color: white; transition: background-color 0.2s ease; }
+        .btn-red { background-color: #e74c3c; }
+        .btn-red:hover { background-color: #c0392b; }
+        .btn-gray { background-color: #95a5a6; }
+        .btn-gray:hover { background-color: #7f8c8d; }
+        .btn-green { background-color: #2ecc71; }
+        .btn-green:hover { background-color: #27ae60; }
+        .btn-yellow { background-color: #f1c40f; color: #333; }
+        .btn-yellow:hover { background-color: #f39c12; }
+        
+        .session-result { background-color: #e8f8f5; border: 2px solid #1abc9c; padding: 15px; border-radius: 8px; margin-top: 10px; }
+        .edit-row { display: flex; align-items: center; margin-bottom: 10px; border-bottom: 1px dashed #ccc; padding-bottom: 5px; }
+        .edit-row:last-child { border-bottom: none; }
+        .instrument-label { font-weight: bold; display: inline-block; width: 90px; color: #7f8c8d; }
+        
+        .edit-select { flex: 1; padding: 6px; font-size: 16px; background-color: #fff; transition: background-color 0.2s ease; }
+        .edit-select.empty-select { background-color: #dcdde1; color: #7f8c8d; }
+        
+        .history-item { background-color: #f9f9f9; border: 1px solid #eee; padding: 15px; margin-top: 15px; border-radius: 6px; transition: 0.3s; }
+        .history-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #bdc3c7; padding-bottom: 5px; margin-bottom: 10px; }
+        .history-title { font-weight: bold; color: #2c3e50; font-size: 1.1em; }
+        .history-members { margin-bottom: 10px; line-height: 1.6; padding: 5px; border: 1px dashed transparent; border-radius: 4px; font-size: 16px; }
+        .history-members[contenteditable="true"]:hover { border-color: #3498db; background-color: #fff; cursor: text; }
+        .history-members[contenteditable="true"]:focus { border-color: #3498db; background-color: #fff; outline: none; }
+        
+        .memo-input { background-color: #fff; border: 1px dashed #95a5a6; padding: 8px; width: 100%; box-sizing: border-box; border-radius: 4px; font-size: 16px; transition: border-color 0.3s; }
+        .memo-input:focus { border: 1px solid #3498db; outline: none; border-style: solid; }
+
+        .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-top: 5px; }
+        .setting-item { display: flex; align-items: center; background: #ecf0f1; padding: 8px; border-radius: 4px; }
+        .setting-item .instrument-label { width: 60px; font-size: 0.9em; }
+        .setting-item select { padding: 4px; font-size: 16px; flex: 1; }
+        .settings-title { display: block; margin-top: 15px; margin-bottom: 5px; color: #34495e; font-size: 1em; font-weight: bold; border-left: 4px solid #3498db; padding-left: 8px;}
+        .status-break { background-color: #fcf3cf; color: #7f8c8d; }
+        
+        .info-box { background-color: #e8f4f8; border-left: 4px solid #3498db; padding: 10px; font-size: 0.85em; color: #2c3e50; margin-bottom: 10px; border-radius: 0 4px 4px 0; line-height: 1.5; }
+        .text-center { text-align: center; }
+    </style>
+</head>
+<body>
+
+    <h1>Jazz Session Manager</h1>
+
+    <div class="container">
+        <div class="panel" style="flex-basis: 100%;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <h2 style="margin-top: 0; font-size: 1.2em;">⚙️ セッション設定</h2>
+                <button class="reset-btn" onclick="clearAllData()">データをリセット</button>
+            </div>
+            
+            <span class="settings-title">👥 編成枠数（何人で組むか）</span>
+            <div class="settings-grid">
+                <div class="setting-item">
+                    <span class="instrument-label">フロント</span>
+                    <select id="count-フロント">
+                        <option value="0">0人</option>
+                        <option value="1">1人</option>
+                        <option value="2" selected>2人</option>
+                        <option value="3">3人</option>
+                        <option value="4">4人</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <span class="instrument-label">ギター</span>
+                    <select id="count-ギター">
+                        <option value="0">0人</option>
+                        <option value="1" selected>1人</option>
+                        <option value="2">2人</option>
+                    </select>
+                </div>
+            </div>
+
+            <span class="settings-title">🔄 交代ルール（何曲連続で回すか）</span>
+            <div class="settings-grid">
+                <div class="setting-item"><span class="instrument-label">フロント</span><select id="rot-フロント"><option value="1">1曲交代</option><option value="2">2曲連続</option><option value="3">3曲連続</option></select></div>
+                <div class="setting-item"><span class="instrument-label">ピアノ</span><select id="rot-ピアノ"><option value="1">1曲交代</option><option value="2">2曲連続</option><option value="3">3曲連続</option></select></div>
+                <div class="setting-item"><span class="instrument-label">ギター</span><select id="rot-ギター"><option value="1">1曲交代</option><option value="2">2曲連続</option><option value="3">3曲連続</option></select></div>
+                <div class="setting-item"><span class="instrument-label">ベース</span><select id="rot-ベース"><option value="1">1曲交代</option><option value="2">2曲連続</option><option value="3">3曲連続</option></select></div>
+                <div class="setting-item"><span class="instrument-label">ドラム</span><select id="rot-ドラム"><option value="1">1曲交代</option><option value="2">2曲連続</option><option value="3">3曲連続</option></select></div>
+                <div class="setting-item"><span class="instrument-label">その他</span><select id="rot-その他"><option value="1">1曲交代</option><option value="2">2曲連続</option><option value="3">3曲連続</option></select></div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>参加者エントリー</h2>
+            <div class="form-group">
+                <label for="name">名前</label>
+                <input type="text" id="name" placeholder="例: 山田太郎 (Enterで追加)">
+            </div>
+            <div class="form-group">
+                <label for="instrument">楽器</label>
+                <select id="instrument">
+                    <option value="フロント">フロント</option>
+                    <option value="ピアノ">ピアノ</option>
+                    <option value="ギター">ギター</option>
+                    <option value="ベース">ベース</option>
+                    <option value="ドラム">ドラム</option>
+                    <option value="その他">その他</option>
+                </select>
+            </div>
+            <button id="add-btn" class="full-width-btn" onclick="addParticipant()">追加する</button>
+        </div>
+
+        <div class="panel" style="flex: 2;">
+            <h2>エントリー一覧 (<span id="total-count">0</span>名)</h2>
+            
+            <div class="info-box">
+                <b>💡 基準回数について</b><br>
+                選出アルゴリズムを公平にするための内部スコアです。遅れて来た人が連続で選ばれすぎるのを防ぐため、途中参加者は自動的に「同じ楽器の最小回数」からスタートするよう調整されます。
+            </div>
+
+            <table id="participant-table">
+                <thead>
+                    <tr>
+                        <th>受付</th>
+                        <th>名前</th>
+                        <th>楽器</th>
+                        <th>状態</th>
+                        <th class="text-center">実演奏</th>
+                        <th class="text-center">基準回数(調整)</th>
+                        <th>削除</th>
+                    </tr>
+                </thead>
+                <tbody id="participant-list">
+                </tbody>
+            </table>
+            <br>
+            <button id="gen-btn" class="generate-btn" onclick="generateSession()">次のセッションを自動生成</button>
+        </div>
+    </div>
+
+    <div class="container" style="margin-top: 20px;">
+        <div class="panel" id="result-panel" style="display: none;">
+            <h2>次に演奏する編成 (マニュアル調整)</h2>
+            <p style="font-size: 0.9em; color: #7f8c8d;">※必要に応じてメンバーを入れ替えてから「確定」を押してください。</p>
+            <div id="session-editor" class="session-result"></div>
+            <button id="conf-btn" class="confirm-btn" onclick="confirmSession()">この編成で確定して履歴に追加</button>
+        </div>
+
+        <div class="panel" id="history-panel" style="display: none;">
+            <h2>セッション履歴</h2>
+            <p style="font-size: 0.9em; color: #7f8c8d;">※履歴のメンバー名部分はクリックすると直接文字を編集できます。</p>
+            <div id="history-output"></div>
+        </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 40px; margin-bottom: 30px;">
+        <p style="font-size: 0.85em; color: #7f8c8d;">💡 アプリが役に立ったら、開発の応援をお願いします！</p>
+        <a href="https://ofuse.me/9ca24bdc" target="_blank" style="display: inline-block; background-color: #1abc9c; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: all 0.2s ease;">
+            ☕️ 開発者を応援する（投げ銭・サポート）
+        </a>
+    </div>
+
+    <script>
+        let participants = [];
+        let sessionCounter = 0;
+        let sessionHistoriesData = []; 
+
+        // ⬇︎ データ保存・読み込み機能 ⬇︎
+        const STORAGE_KEY = 'jazzSessionApp_SaveData';
+
+        function saveData() {
+            const dataToSave = {
+                participants: participants,
+                sessionCounter: sessionCounter,
+                sessionHistoriesData: sessionHistoriesData
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+        }
+
+        function loadData() {
+            const savedData = localStorage.getItem(STORAGE_KEY);
+            if (savedData) {
+                const data = JSON.parse(savedData);
+                participants = data.participants || [];
+                sessionCounter = data.sessionCounter || 0;
+                sessionHistoriesData = data.sessionHistoriesData || [];
+
+                updateTable();
+                restoreHistoryUI();
+            }
+        }
+
+        function restoreHistoryUI() {
+            if (sessionHistoriesData.length > 0) {
+                document.getElementById('history-panel').style.display = 'block';
+                const historyOutput = document.getElementById('history-output');
+                historyOutput.innerHTML = ''; // 一旦クリア
+                
+                // 古い順(配列の最初)から追加していくことで、新しいものが上(prepend)になる
+                sessionHistoriesData.forEach(h => {
+                    const historyItem = document.createElement('div');
+                    historyItem.className = 'history-item';
+                    historyItem.id = h.id;
+                    
+                    historyItem.innerHTML = `
+                        <div class="history-header">
+                            <div class="history-title">第${h.sessionNumber}回</div>
+                            <button class="small-btn btn-red" onclick="removeHistory('${h.id}')">履歴を削除</button>
+                        </div>
+                        <div class="history-members" contenteditable="true" onblur="updateHistoryHtml('${h.id}', this.innerHTML)" title="クリックして直接テキストを編集できます">${h.membersHtml}</div>
+                        <input type="text" class="memo-input" placeholder="メモ（演奏した曲名など）" value="${h.memo || ''}" oninput="updateHistoryMemo('${h.id}', this.value)">
+                    `;
+                    historyOutput.prepend(historyItem);
+                });
+            }
+        }
+
+        function clearAllData() {
+            if (confirm("参加者情報やセッション履歴など、すべてのデータを削除します。")) {
+                localStorage.removeItem(STORAGE_KEY);
+                participants = [];
+                sessionCounter = 0;
+                sessionHistoriesData = [];
+                
+                updateTable();
+                document.getElementById('history-output').innerHTML = '';
+                document.getElementById('history-panel').style.display = 'none';
+                document.getElementById('result-panel').style.display = 'none';
+            }
+        }
+
+        // ページ読み込み時にデータを復元する
+        window.onload = loadData;
+        // ⬆︎ データ保存・読み込み機能 ⬆︎
+
+        document.getElementById('name').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addParticipant();
+            }
+        });
+
+        function addParticipant() {
+            const nameInput = document.getElementById('name');
+            const name = nameInput.value.trim();
+            const instrument = document.getElementById('instrument').value;
+            
+            if (!name) { alert("名前を入力してください。"); return; }
+
+            const now = new Date();
+            const timeString = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+            const entryTimestamp = now.getTime();
+
+            let initialPlayCount = 0;
+            const sameInstMembers = participants.filter(p => p.instrument === instrument);
+            if (sameInstMembers.length > 0) {
+                initialPlayCount = Math.min(...sameInstMembers.map(p => p.playCount));
+            }
+
+            const newId = entryTimestamp.toString() + Math.floor(Math.random() * 1000);
+
+            participants.push({ 
+                id: newId, 
+                name: name, 
+                instrument: instrument, 
+                playCount: initialPlayCount,
+                actualPlayCount: 0,
+                lastPlayedSession: 0, 
+                currentConsecutiveCount: 0,
+                entryTime: entryTimestamp, 
+                entryTimeString: timeString,
+                status: 'active'
+            });
+            
+            const addBtn = document.getElementById('add-btn');
+            const originalText = "追加する";
+            addBtn.innerText = "✨ 追加しました！";
+            addBtn.classList.add('btn-success-anim');
+            setTimeout(() => {
+                addBtn.innerText = originalText;
+                addBtn.classList.remove('btn-success-anim');
+            }, 1200);
+
+            nameInput.value = '';
+            nameInput.focus();
+            updateTable(newId);
+            saveData(); // 保存
+        }
+
+        function removeParticipant(id) {
+            if (confirm("この参加者をリストから完全に削除しますか？\n※一時的な離席の場合は「休憩」ステータスをご利用ください。")) {
+                participants = participants.filter(p => p.id !== id);
+                updateTable();
+                saveData(); // 保存
+            }
+        }
+
+        function toggleStatus(id) {
+            const p = participants.find(p => p.id === id);
+            if (p) {
+                p.status = (p.status === 'active') ? 'break' : 'active';
+                updateTable();
+                saveData(); // 保存
+            }
+        }
+
+        function adjustCount(id, delta) {
+            const p = participants.find(p => p.id === id);
+            if (p) {
+                p.playCount += delta;
+                if (p.playCount < 0) p.playCount = 0;
+                updateTable();
+                saveData(); // 保存
+            }
+        }
+
+        function updateTable(highlightId = null) {
+            const tbody = document.getElementById('participant-list');
+            tbody.innerHTML = '';
+
+            const instrumentOrder = { "フロント": 1, "ピアノ": 2, "ギター": 3, "ベース": 4, "ドラム": 5, "その他": 6 };
+
+            const sortedParticipants = [...participants].sort((a, b) => {
+                const orderA = instrumentOrder[a.instrument] || 99;
+                const orderB = instrumentOrder[b.instrument] || 99;
+                
+                if (orderA !== orderB) {
+                    return orderA - orderB;
+                }
+                return a.entryTime - b.entryTime;
+            });
+
+            sortedParticipants.forEach(p => {
+                const tr = document.createElement('tr');
+                if (p.status === 'break') tr.className = 'status-break'; 
+                if (p.id === highlightId) tr.classList.add('highlight-row');
+                
+                const statusBtn = p.status === 'active' 
+                    ? `<button class="small-btn btn-green" onclick="toggleStatus('${p.id}')">🟢 参加中</button>` 
+                    : `<button class="small-btn btn-yellow" onclick="toggleStatus('${p.id}')">🟡 休憩中</button>`;
+
+                tr.innerHTML = `
+                    <td class="time-cell">${p.entryTimeString}</td>
+                    <td>${p.name}</td>
+                    <td>${p.instrument}</td>
+                    <td>${statusBtn}</td>
+                    <td class="text-center"><b>${p.actualPlayCount}回</b></td>
+                    <td class="text-center">
+                        <button class="small-btn btn-gray" onclick="adjustCount('${p.id}', -1)">-</button>
+                        ${p.playCount}
+                        <button class="small-btn btn-gray" onclick="adjustCount('${p.id}', 1)">+</button>
+                    </td>
+                    <td>
+                        <button class="small-btn btn-red" onclick="removeParticipant('${p.id}')">削除</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            document.getElementById('total-count').innerText = participants.length;
+        }
+
+        function getSelectOptionsHTML(selectedParticipantId = "") {
+            let html = `<option value="" style="background-color: #dcdde1;">-- 不在 / 選択なし --</option>`;
+            const instruments = ["フロント", "ピアノ", "ギター", "ベース", "ドラム", "その他"];
+            instruments.forEach(inst => {
+                const groupMembers = participants.filter(p => p.instrument === inst);
+                if (groupMembers.length > 0) {
+                    html += `<optgroup label="${inst}">`;
+                    groupMembers.forEach(p => {
+                        const selected = (p.id === selectedParticipantId) ? "selected" : "";
+                        const justPlayedMark = (p.lastPlayedSession === sessionCounter && sessionCounter > 0) ? ` [連:${p.currentConsecutiveCount}]` : "";
+                        const statusMark = p.status === 'break' ? ` 【休憩中】` : "";
+                        html += `<option value="${p.id}" ${selected} style="background-color: #fff;">${p.name} (実演奏:${p.actualPlayCount}回)${justPlayedMark}${statusMark}</option>`;
+                    });
+                    html += `</optgroup>`;
+                }
+            });
+            return html;
+        }
+
+        function generateSession() {
+            const activeParticipants = participants.filter(p => p.status === 'active');
+            if (activeParticipants.length === 0) { alert("現在参加中のメンバーがいません。"); return; }
+
+            const genBtn = document.getElementById('gen-btn');
+            const origGenText = "次のセッションを自動生成";
+            genBtn.innerText = "✨ 編成を作成しました！";
+            genBtn.classList.add('btn-success-anim');
+            setTimeout(() => {
+                genBtn.innerText = origGenText;
+                genBtn.classList.remove('btn-success-anim');
+            }, 1000);
+
+            const frontReq = parseInt(document.getElementById('count-フロント').value);
+            const guitarReq = parseInt(document.getElementById('count-ギター').value);
+            
+            const rolesConfig = {
+                "フロント": frontReq,
+                "ピアノ": 1,
+                "ギター": guitarReq,
+                "ベース": 1,
+                "ドラム": 1,
+                "その他": 1
+            };
+
+            const rotationSettings = {
+                "フロント": parseInt(document.getElementById('rot-フロント').value),
+                "ピアノ": parseInt(document.getElementById('rot-ピアノ').value),
+                "ギター": parseInt(document.getElementById('rot-ギター').value),
+                "ベース": parseInt(document.getElementById('rot-ベース').value),
+                "ドラム": parseInt(document.getElementById('rot-ドラム').value),
+                "その他": parseInt(document.getElementById('rot-その他').value)
+            };
+
+            let autoSelected = { "フロント": [], "ピアノ": [], "ギター": [], "ベース": [], "ドラム": [], "その他": [] };
+            
+            activeParticipants.forEach(p => {
+                if (p.lastPlayedSession === sessionCounter && sessionCounter > 0) {
+                    const limit = rotationSettings[p.instrument] || 1;
+                    if (p.currentConsecutiveCount < limit) {
+                        if (autoSelected[p.instrument].length < rolesConfig[p.instrument]) {
+                            autoSelected[p.instrument].push(p.id);
+                        }
+                    }
+                }
+            });
+
+            const lockedIds = Object.values(autoSelected).flat();
+            let pool = activeParticipants.filter(p => !lockedIds.includes(p.id));
+
+            pool.sort((a, b) => {
+                const aPlayedLast = (a.lastPlayedSession === sessionCounter && sessionCounter > 0) ? 1 : 0;
+                const bPlayedLast = (b.lastPlayedSession === sessionCounter && sessionCounter > 0) ? 1 : 0;
+                if (aPlayedLast !== bPlayedLast) return aPlayedLast - bPlayedLast;
+                if (a.playCount !== b.playCount) return a.playCount - b.playCount;
+                if (a.lastPlayedSession !== b.lastPlayedSession) return a.lastPlayedSession - b.lastPlayedSession;
+                if (a.entryTime !== b.entryTime) return a.entryTime - b.entryTime;
+                return Math.random() - 0.5;
+            });
+
+            ["フロント", "ピアノ", "ギター", "ベース", "ドラム", "その他"].forEach(inst => {
+                const neededCount = rolesConfig[inst] - autoSelected[inst].length;
+                const candidates = pool.filter(p => p.instrument === inst);
+                for (let i = 0; i < neededCount; i++) {
+                    if (candidates[i]) {
+                        autoSelected[inst].push(candidates[i].id);
+                    }
+                }
+            });
+
+            const editor = document.getElementById('session-editor');
+            editor.innerHTML = '';
+            
+            let slotCounter = 0;
+            
+            ["フロント", "ピアノ", "ギター", "ベース", "ドラム", "その他"].forEach(inst => {
+                const count = rolesConfig[inst];
+                for (let i = 0; i < count; i++) {
+                    slotCounter++;
+                    const defaultId = autoSelected[inst][i] || "";
+                    const displayLabel = count > 1 ? `${inst}${i + 1}` : inst;
+                    
+                    const emptyClass = defaultId === "" ? "empty-select" : "";
+                    
+                    const row = document.createElement('div');
+                    row.className = 'edit-row';
+                    row.innerHTML = `<span class="instrument-label">${displayLabel}</span>` + 
+                                    `<select id="slot-${slotCounter}" class="edit-select ${emptyClass}" data-inst="${inst}" data-label="${displayLabel}" onchange="this.classList.toggle('empty-select', this.value === '')">` +
+                                    getSelectOptionsHTML(defaultId) +
+                                    `</select>`;
+                    editor.appendChild(row);
+                }
+            });
+
+            const resultPanel = document.getElementById('result-panel');
+            resultPanel.style.display = 'block';
+            resultPanel.classList.remove('fade-in-down');
+            void resultPanel.offsetWidth;
+            resultPanel.classList.add('fade-in-down');
+
+            setTimeout(() => {
+                const confBtn = document.getElementById('conf-btn');
+                if (confBtn) {
+                    const rect = confBtn.getBoundingClientRect();
+                    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                    const targetY = rect.bottom + scrollTop - window.innerHeight + 20;
+                    
+                    window.scrollTo({
+                        top: targetY,
+                        behavior: 'smooth'
+                    });
+                }
+            }, 50);
+        }
+
+        // 履歴のテキスト編集を保存する用
+        function updateHistoryHtml(id, newHtml) {
+            const h = sessionHistoriesData.find(x => x.id === id);
+            if (h) { h.membersHtml = newHtml; saveData(); }
+        }
+
+        // 履歴のメモ編集を保存する用
+        function updateHistoryMemo(id, newMemo) {
+            const h = sessionHistoriesData.find(x => x.id === id);
+            if (h) { h.memo = newMemo; saveData(); }
+        }
+
+        function removeHistory(historyId) {
+            if(confirm("この履歴を削除しますか？\n（参加メンバーの演奏回数や連続状況も元に戻ります）")) {
+                const historyData = sessionHistoriesData.find(h => h.id === historyId);
+                if (historyData) {
+                    historyData.membersState.forEach(savedState => {
+                        const p = participants.find(p => p.id === savedState.id);
+                        if (p) {
+                            if (p.lastPlayedSession === historyData.sessionNumber) {
+                                p.playCount = savedState.prevPlayCount;
+                                p.actualPlayCount = savedState.prevActualPlayCount; 
+                                p.currentConsecutiveCount = savedState.prevConsecutiveCount;
+                                p.lastPlayedSession = savedState.prevLastPlayedSession;
+                            } else {
+                                if (p.playCount > 0) p.playCount--;
+                                if (p.actualPlayCount > 0) p.actualPlayCount--;
+                            }
+                        }
+                    });
+                    if (historyData.sessionNumber === sessionCounter) {
+                        sessionCounter--;
+                    }
+                    sessionHistoriesData = sessionHistoriesData.filter(h => h.id !== historyId);
+                    updateTable();
+                    saveData(); // 保存
+                }
+                const el = document.getElementById(historyId);
+                if (el) el.remove();
+            }
+        }
+
+        function confirmSession() {
+            const confBtn = document.getElementById('conf-btn');
+            const originalText = confBtn.innerText;
+            confBtn.innerText = "✅ 確定しました！";
+            confBtn.classList.add('btn-success-anim');
+
+            setTimeout(() => {
+                confBtn.innerText = originalText;
+                confBtn.classList.remove('btn-success-anim');
+                
+                let previousSessionCounter = sessionCounter;
+                sessionCounter++;
+                let confirmedMembers = [];
+                let participatedMembersState = [];
+
+                const selectEls = document.querySelectorAll('#session-editor .edit-select');
+                
+                selectEls.forEach(selectEl => {
+                    const selectedId = selectEl.value;
+                    const labelName = selectEl.dataset.label;
+                    
+                    if (selectedId !== "") {
+                        const member = participants.find(p => p.id === selectedId);
+                        if (member) {
+                            confirmedMembers.push({ label: labelName, name: member.name, inst: member.instrument });
+                            
+                            participatedMembersState.push({
+                                id: member.id,
+                                prevPlayCount: member.playCount,
+                                prevActualPlayCount: member.actualPlayCount,
+                                prevConsecutiveCount: member.currentConsecutiveCount,
+                                prevLastPlayedSession: member.lastPlayedSession
+                            });
+                            
+                            member.playCount++; 
+                            member.actualPlayCount++; 
+                            
+                            if (member.lastPlayedSession === previousSessionCounter && previousSessionCounter > 0) {
+                                member.currentConsecutiveCount++;
+                            } else {
+                                member.currentConsecutiveCount = 1;
+                            }
+                            member.lastPlayedSession = sessionCounter;
+                        }
+                    }
+                });
+
+                updateTable();
+
+                document.getElementById('history-panel').style.display = 'block';
+                const historyOutput = document.getElementById('history-output');
+                
+                let membersHtml = confirmedMembers.map(m => `<b>[${m.label}]</b> ${m.name}`).join(' / ');
+                if (confirmedMembers.length === 0) membersHtml = "メンバーなし";
+
+                const historyId = `history-${Date.now()}`;
+                
+                // 保存用データにHTMLとメモの空枠を追加
+                sessionHistoriesData.push({
+                    id: historyId,
+                    sessionNumber: sessionCounter,
+                    membersState: participatedMembersState,
+                    membersHtml: membersHtml,
+                    memo: ""
+                });
+
+                const historyItem = document.createElement('div');
+                historyItem.className = 'history-item history-flash';
+                historyItem.id = historyId;
+                
+                historyItem.innerHTML = `
+                    <div class="history-header">
+                        <div class="history-title">第${sessionCounter}回</div>
+                        <button class="small-btn btn-red" onclick="removeHistory('${historyId}')">履歴を削除</button>
+                    </div>
+                    <div class="history-members" contenteditable="true" onblur="updateHistoryHtml('${historyId}', this.innerHTML)" title="クリックして直接テキストを編集できます">${membersHtml}</div>
+                    <input type="text" class="memo-input" placeholder="メモ（演奏した曲名など）" oninput="updateHistoryMemo('${historyId}', this.value)">
+                `;
+                
+                historyOutput.prepend(historyItem);
+                document.getElementById('result-panel').style.display = 'none';
+
+                saveData(); // 保存
+
+                setTimeout(() => {
+                    const rect = historyItem.getBoundingClientRect();
+                    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                    const targetY = rect.bottom + scrollTop - window.innerHeight + 20;
+                    
+                    window.scrollTo({
+                        top: targetY,
+                        behavior: 'smooth'
+                    });
+                }, 50);
+
+            }, 300);
+        }
+    </script>
+</body>
+</html>
